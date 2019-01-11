@@ -54,7 +54,7 @@ lint: ## check style with flake8
 	flake8 mongodb_queue tests
 
 test: ## run tests quickly with the default Python
-	py.test
+	py.test --disable-warnings
 
 test-all: ## run tests on every Python version with tox
 	tox
