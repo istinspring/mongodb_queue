@@ -48,17 +48,30 @@ class BaseMongodbQueue:
     _payload_schema = {
         'value': {'type': 'string', 'required': True},
     }
+
     _queue_schema = {
-        '_id': {'type': 'string'},
-        'done': {'type': 'boolean', 'default': False},
-        'created_at': {'type': 'datetime', 'required': True},
-        'finished_at': {'type': 'datetime', 'required': False},
+        'created_at': {
+            'type': 'datetime', 'required': True,
+        },
+        'finished_at': {
+            'type': 'datetime',
+            'nullable': True,
+            'default': None,
+            'required': False,
+        },
         'priority': {'type': 'integer', 'default': 0},
         'payload': {'type': 'dict', 'required': True},
     }
+
     _indexes = [
-        [('created_at', -1)],
-        [('finished_at', -1)]
+        [('priority', -1)],
+        [('created_at', 1)],
+        [('finished_at', -1)],
+    ]
+
+    _sort_by = [
+        ('priority', -1),
+        ('created_at', 1),
     ]
 
     @property
@@ -72,63 +85,52 @@ class BaseMongodbQueue:
         self._payload_validator = Validator(self._payload_schema)
         self._document_validator = Validator(self._queue_schema)
 
-    def put(self, payload, priority=0,
-            created_at=None, finished_at=None,
-            yield_bulk=False):
+    def put(self, payload, priority=0, selector={}):
         """Put task into profiles queue
 
         :param payload: payload to save into the qeue
         :param priority: the bigger the better
-        :param created_at: explicitely set 'created_at' field
-        :param finished_at: explicitely set 'finished_at' filed
-        :param yield_bulk return
-        :returns: mongodb op result or InsertOp
+        :param selector: key-value pair or more complex query to
+        check if item already in queue
+        :returns: `InsertOneResult`
         """
-        v = self.payload_validator.validate(payload)
-        if v is False:
-            return {'vaidation_errors': self.payload_validator.errors}
+        # old code. TODO: delete
+        # v = self.payload_validator.validate(payload)
+        # if v is False:
+        #     return {'vaidation_errors': self.payload_validator.errors}
 
-        payload_ = self.payload_validator.normalized(payload)
+        v = self._payload_validator.validate(payload)
+        if v is False:
+            raise Exception(
+                "Vaidation_errors: {}".format(
+                    self._payload_validator.errors))
+
+        payload_normalized = self.payload_validator.normalized(payload)
         document = {
-            'created_at': datetime.utcnow(),
-            'finished_at': datetime.fromtimestamp(0),
+            'payload': payload_normalized,
             'priority': priority,
-            'payload': payload_,
+            'created_at': datetime.utcnow(),
+            'finished_at': None,
         }
 
-        if created_at is not None:
-            document['created_at'] = created_at
+        task = None
+        if selector:
+            task = self.col.find_one(selector)
 
-        if finished_at is not None:
-            document['finished_at'] = finished_at
-        else:
-            # if 'finished_at' is not defined we assign date of
-            # datetime.datetime(1970, 1, 1, 7, 0)
-            finished_at = datetime.fromtimestamp(0)
-            document['finished_at'] = finished_at
-
-        task = self.col.find_one(
-            {'payload.key': payload['key']})
-
-        # if task with this username aren't there
         if task is None:
-            # add new task
-            if yield_bulk:
-                task = pymongo.InsertOne(document)
-            else:
-                task = self.conn[self.queue_name].insert_one(document)
-                logger.debug('Task added: {}'.format(task.inserted_id))
+            task = self.conn[self.queue_name].insert_one(document)
 
         return task
 
-    def get(self, length):
+    def get(self, length, selector={}):
         """Return sequence of tasks to process.
+
+        :param length: the length of the desired sequence
+        :param selector: additional condition to select tasks from queue
+        :returns: list of document
         """
-        documents = self.conn[self.queue_name].find(
-            {
-                'payload.key': False,
-            }
-        ).sort([('finished_at', 1), ('priority', -1)]).limit(lenghth)
+        documents = self.col.find(selector).sort(
+        ).limit(length)
 
         # for large collections  col.count() after .limit()
         # takes few minutes to complete
