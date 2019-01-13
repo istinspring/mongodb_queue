@@ -51,7 +51,8 @@ class BaseMongodbQueue:
 
     _queue_schema = {
         'created_at': {
-            'type': 'datetime', 'required': True,
+            'type': 'datetime',
+            'required': True,
         },
         'finished_at': {
             'type': 'datetime',
@@ -99,13 +100,13 @@ class BaseMongodbQueue:
         # if v is False:
         #     return {'vaidation_errors': self.payload_validator.errors}
 
+        payload_normalized = self._payload_validator.normalized(payload)
         v = self._payload_validator.validate(payload)
         if v is False:
             raise Exception(
                 "Vaidation_errors: {}".format(
                     self._payload_validator.errors))
 
-        payload_normalized = self.payload_validator.normalized(payload)
         document = {
             'payload': payload_normalized,
             'priority': priority,
@@ -118,7 +119,7 @@ class BaseMongodbQueue:
             task = self.col.find_one(selector)
 
         if task is None:
-            task = self.conn[self.queue_name].insert_one(document)
+            task = self.col.insert_one(document)
 
         return task
 
@@ -130,7 +131,7 @@ class BaseMongodbQueue:
         :returns: list of document
         """
         documents = self.col.find(selector).sort(
-        ).limit(length)
+            self._sort_by).limit(length)
 
         # for large collections  col.count() after .limit()
         # takes few minutes to complete

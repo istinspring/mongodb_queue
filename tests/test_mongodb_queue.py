@@ -11,6 +11,9 @@ import pymongo
 from mongodb_queue import cli
 
 
+TEST_DATABASE_NAME = 'test_mqueue'
+
+
 @pytest.fixture
 def response():
     """Sample pytest fixture.
@@ -31,8 +34,31 @@ def test_mongodb_queue_init_base_class():
     from mongodb_queue.mongodb_queue import BaseMongodbQueue
 
     client = pymongo.MongoClient()
-    q = BaseMongodbQueue(client, 'test_mqueue')
+    q = BaseMongodbQueue(client, TEST_DATABASE_NAME)
     assert q.size() == 0
+
+
+def test_mongodb_queue():
+    from mongodb_queue.mongodb_queue import BaseMongodbQueue
+
+    class MongodbQueue(BaseMongodbQueue):
+       _queue_name = 'queue_queue'
+       _payload_schema = {
+           'key': {'type': 'string', 'required': True},
+           'required_value': {'type': 'string', 'required': True},
+           'default_value': {'type': 'string', 'default': 'nope'},
+       }
+
+    client = pymongo.MongoClient()
+
+    q = MongodbQueue(client, TEST_DATABASE_NAME)
+
+    payload = {
+        'key': 'alpha',
+        'required_value': 'yes',
+    }
+    task = q.put(payload, priority=5)
+    assert isinstance(task, pymongo.results.InsertOneResult)
 
 
 def test_command_line_interface():
