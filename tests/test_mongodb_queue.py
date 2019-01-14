@@ -117,6 +117,15 @@ def test_mongodb_queue_put_with_selectors(test_db):
     assert len(data_from_get) == q.col.count({'payload.required_value': 'yes'})
 
 
+def test_mongodb_queue_zero_length(test_db):
+    from mongodb_queue.mongodb_queue import PayloadValidationError
+
+    client, _ = test_db
+
+    q = MongodbQueue(client, TEST_DATABASE_NAME)
+    assert q.size() == 0
+
+
 def test_mongodb_queue_get_sort_by(test_db):
     from mongodb_queue.mongodb_queue import PayloadValidationError
 
@@ -152,12 +161,59 @@ def test_mongodb_queue_get_sort_by(test_db):
     for s in created_at_list_sorted_rev:
         assert s in created_at_list
 
-    tasks_queue_get = q.get( 2)
-
-
-
+    # tasks_queue_get = q.get(2)
     # # check selectors working
     # pass
+
+
+def test_mongodb_queue_get_mark_done(test_db):
+    from mongodb_queue.mongodb_queue import PayloadValidationError
+
+    # client = pymongo.MongoClient()
+    client, conn = test_db
+
+    q = MongodbQueue(client, TEST_DATABASE_NAME)
+    q.sort_by = [('finished_at', 1)]
+
+    assert q.size() == 0
+
+    # save in cycle
+    for key in range(6):
+        payload = {
+            'key': str(key),
+            'required_value': 'yes' if key % 2 == 0 else 'nope',
+            'default_value': 'yes!'
+        }
+        task = q.put(payload, priority=key)
+
+    assert q.size() == 6
+
+    # get 3 documents not yet processed
+    tasks_queue_get = q.get(3)
+    assert len(tasks_queue_get) == 3
+
+    for t in tasks_queue_get:
+        assert t['finished_at'] is None
+
+    for t in tasks_queue_get:
+        result = q.mark_done({'_id': t['_id']})
+        assert isinstance(result, pymongo.results.UpdateResult)
+
+    # get 3 last
+    tasks_left = q.get(3)
+    assert len(tasks_left) == 3
+
+    print(tasks_left)
+
+    for t in tasks_left:
+        assert t['finished_at'] is None
+
+    for t in tasks_left:
+        result = q.mark_done({'_id': t['_id']})
+        print(result)
+
+    # check there are none items left unprocessed
+    assert q.col.count({'finished_at': None}) == 0
 
 
 def test_command_line_interface():

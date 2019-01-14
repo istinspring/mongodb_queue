@@ -149,6 +149,22 @@ class BaseMongodbQueue:
         # takes few minutes to complete
         return list(documents)
 
+    def delete(self, selector):
+        result = self.col.delete_one(selector)
+        return result
+
+    def mark_done(self, selector):
+        result = self.col.update_one(
+            selector,
+            {
+                '$set': {
+                    'finished_at': datetime.utcnow(),
+                }
+            },
+            upsert=False,
+        )
+        return result
+
     def size(self):
         return self.col.count()
 
