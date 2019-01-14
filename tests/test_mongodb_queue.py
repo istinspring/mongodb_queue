@@ -12,6 +12,20 @@ from mongodb_queue import cli
 
 
 TEST_DATABASE_NAME = 'test_mqueue'
+QUEUE_COLLECTION = 'queue_queue'
+
+
+@pytest.fixture(scope='function')
+def test_db():
+    """Test that we're using testing database,
+    load module level fixture, ensure
+    collection will be droped after execution of the test case"""
+    db = pymongo.MongoClient()
+    conn = db[TEST_DATABASE_NAME]
+
+    assert conn.name == TEST_DATABASE_NAME
+    yield db, conn
+    conn[QUEUE_COLLECTION].drop()
 
 
 @pytest.fixture
@@ -38,18 +52,19 @@ def test_mongodb_queue_init_base_class():
     assert q.size() == 0
 
 
-def test_mongodb_queue():
+def test_mongodb_queue(test_db):
     from mongodb_queue.mongodb_queue import BaseMongodbQueue
 
     class MongodbQueue(BaseMongodbQueue):
-       _queue_name = 'queue_queue'
+       _queue_name = QUEUE_COLLECTION
        _payload_schema = {
            'key': {'type': 'string', 'required': True},
            'required_value': {'type': 'string', 'required': True},
            'default_value': {'type': 'string', 'default': 'nope'},
        }
 
-    client = pymongo.MongoClient()
+    # client = pymongo.MongoClient()
+    client, _ = test_db
 
     q = MongodbQueue(client, TEST_DATABASE_NAME)
 
@@ -59,6 +74,20 @@ def test_mongodb_queue():
     }
     task = q.put(payload, priority=5)
     assert isinstance(task, pymongo.results.InsertOneResult)
+    assert q.size() == 1
+
+    # save in cycle
+    for key in range(6):
+        payload = {
+            'key': str(key),
+            'required_value': 'yes' if key % 2 == 0 else 'nope',
+            'default_value': 'yes!'
+        }
+        task = q.put(payload, priority=5)
+
+    assert q.size() == 7
+
+    # check validation error
 
 
 def test_command_line_interface():
