@@ -7,6 +7,10 @@ from pymongo import MongoClient
 from pymongo.errors import ConnectionFailure
 
 
+class PayloadValidationError(Exception):
+    """Raised when payload validation failis"""
+
+
 class MongodbConnector:
     """Connector to mongodb DATABASE"""
 
@@ -79,6 +83,14 @@ class BaseMongodbQueue:
     def col(self):
         return self._conn[self._queue_name]
 
+    @property
+    def sort_by(self):
+        return self._sort_by
+
+    @sort_by.setter
+    def sort_by(self, value):
+        self._sort_by = value
+
     def __init__(self, client, dbname):
         self._db = client
         self._conn = self._db[dbname]
@@ -88,7 +100,7 @@ class BaseMongodbQueue:
 
     def put(self, payload, priority=0, selector={}):
         """Put task into profiles queue
-
+         1
         :param payload: payload to save into the qeue
         :param priority: the bigger the better
         :param selector: key-value pair or more complex query to
@@ -103,7 +115,7 @@ class BaseMongodbQueue:
         payload_normalized = self._payload_validator.normalized(payload)
         v = self._payload_validator.validate(payload)
         if v is False:
-            raise Exception(
+            raise PayloadValidationError(
                 "Vaidation_errors: {}".format(
                     self._payload_validator.errors))
 
@@ -131,7 +143,7 @@ class BaseMongodbQueue:
         :returns: list of document
         """
         documents = self.col.find(selector).sort(
-            self._sort_by).limit(length)
+            self.sort_by).limit(length)
 
         # for large collections  col.count() after .limit()
         # takes few minutes to complete

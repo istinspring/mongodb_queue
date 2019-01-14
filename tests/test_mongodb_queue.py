@@ -9,10 +9,20 @@ from click.testing import CliRunner
 
 import pymongo
 from mongodb_queue import cli
+from mongodb_queue.mongodb_queue import BaseMongodbQueue
 
 
 TEST_DATABASE_NAME = 'test_mqueue'
 QUEUE_COLLECTION = 'queue_queue'
+
+
+class MongodbQueue(BaseMongodbQueue):
+   _queue_name = QUEUE_COLLECTION
+   _payload_schema = {
+       'key': {'type': 'string', 'required': True},
+       'required_value': {'type': 'string', 'required': True},
+       'default_value': {'type': 'string', 'default': 'nope'},
+   }
 
 
 @pytest.fixture(scope='function')
@@ -52,20 +62,10 @@ def test_mongodb_queue_init_base_class():
     assert q.size() == 0
 
 
-def test_mongodb_queue(test_db):
-    from mongodb_queue.mongodb_queue import BaseMongodbQueue
+def test_mongodb_queue_put(test_db):
+    from mongodb_queue.mongodb_queue import PayloadValidationError
 
-    class MongodbQueue(BaseMongodbQueue):
-       _queue_name = QUEUE_COLLECTION
-       _payload_schema = {
-           'key': {'type': 'string', 'required': True},
-           'required_value': {'type': 'string', 'required': True},
-           'default_value': {'type': 'string', 'default': 'nope'},
-       }
-
-    # client = pymongo.MongoClient()
     client, _ = test_db
-
     q = MongodbQueue(client, TEST_DATABASE_NAME)
 
     payload = {
@@ -88,6 +88,76 @@ def test_mongodb_queue(test_db):
     assert q.size() == 7
 
     # check validation error
+    with pytest.raises(PayloadValidationError):
+        payload = {
+            'key': 'test'
+        }
+        q.put(payload, priority=0)
+
+
+def test_mongodb_queue_put_with_selectors(test_db):
+    from mongodb_queue.mongodb_queue import PayloadValidationError
+
+    client, _ = test_db
+    q = MongodbQueue(client, TEST_DATABASE_NAME)
+
+    # save in cycle
+    for key in range(7):
+        payload = {
+            'key': str(key),
+            'required_value': 'yes' if key % 2 == 0 else 'nope',
+            'default_value': 'yes!'
+        }
+        task = q.put(payload, priority=key)
+
+    assert q.size() == 7
+
+    data_from_get = q.get(4, selector={'payload.required_value': 'yes'})
+    assert len(data_from_get) == 4
+    assert len(data_from_get) == q.col.count({'payload.required_value': 'yes'})
+
+
+def test_mongodb_queue_get_sort_by(test_db):
+    from mongodb_queue.mongodb_queue import PayloadValidationError
+
+    # client = pymongo.MongoClient()
+    client, conn = test_db
+
+    q = MongodbQueue(client, TEST_DATABASE_NAME)
+    q.sort_by = [('created_at', 1)]
+
+    # save in cycle
+    for key in range(6):
+        payload = {
+            'key': str(key),
+            'required_value': 'yes' if key % 2 == 0 else 'nope',
+            'default_value': 'yes!'
+        }
+        task = q.put(payload, priority=key)
+
+    assert q.size() == 6
+
+    # get 3 documents not yet processed
+    tasks_queue_get = q.get(3)
+    assert len(tasks_queue_get) == 3
+
+    created_at_list  = [x['created_at'] for x in tasks_queue_get]
+    created_at_list_sorted = sorted(created_at_list)
+
+    for v, s in zip(created_at_list, created_at_list_sorted):
+        assert v == s
+
+    created_at_list_sorted_rev = sorted(created_at_list, reverse=True)
+
+    for s in created_at_list_sorted_rev:
+        assert s in created_at_list
+
+    tasks_queue_get = q.get( 2)
+
+
+
+    # # check selectors working
+    # pass
 
 
 def test_command_line_interface():
