@@ -18,8 +18,9 @@ Simple Queue based on MongoDb
 
 ```python
 from mongodb_queue.mongodb_queue import PayloadValidationError
+
 class MongodbQueue(BaseMongodbQueue):
-    _queue_name = QUEUE_COLLECTION
+    _queue_name = 'some_queue'
     _payload_schema = {
         'key': {'type': 'string', 'required': True},
         'required_value': {'type': 'string', 'required': True},
@@ -29,7 +30,7 @@ class MongodbQueue(BaseMongodbQueue):
 
 client = pymongo.MongoClient()
 
-q = MongodbQueue(client, TEST_DATABASE_NAME)
+q = MongodbQueue(client, 'mongodb_queue')
 q.sort_by = [('created_at', 1)]
 
 # add element to the queue

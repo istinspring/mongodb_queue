@@ -117,6 +117,28 @@ def test_mongodb_queue_put_with_selectors(test_db):
     assert len(data_from_get) == q.col.count({'payload.required_value': 'yes'})
 
 
+def test_mongodb_queue_delete(test_db):
+    client, _ = test_db
+    q = MongodbQueue(client, TEST_DATABASE_NAME)
+
+    # save in cycle
+    for key in range(7):
+        payload = {
+            'key': str(key),
+            'required_value': 'yes' if key % 2 == 0 else 'nope',
+            'default_value': 'yes!'
+        }
+        q.put(payload, priority=key)
+
+    assert q.size() == 7
+
+    tasks = q.get(1)
+    result = q.delete({'_id': tasks[0]['_id']})
+
+    assert isinstance(result, pymongo.results.DeleteResult)
+    assert q.size() == 6
+
+
 def test_mongodb_queue_zero_length(test_db):
     from mongodb_queue.mongodb_queue import PayloadValidationError
 
@@ -203,14 +225,11 @@ def test_mongodb_queue_get_mark_done(test_db):
     tasks_left = q.get(3)
     assert len(tasks_left) == 3
 
-    print(tasks_left)
-
     for t in tasks_left:
         assert t['finished_at'] is None
 
     for t in tasks_left:
         result = q.mark_done({'_id': t['_id']})
-        print(result)
 
     # check there are none items left unprocessed
     assert q.col.count({'finished_at': None}) == 0
