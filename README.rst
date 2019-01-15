@@ -27,6 +27,43 @@ Simple Queue based on MongoDb
 * Documentation: https://mongodb-queue.readthedocs.io.
 
 
+Tutorial
+--------
+
+.. code-block:: python
+    from mongodb_queue.mongodb_queue import PayloadValidationError
+
+    class MongodbQueue(BaseMongodbQueue):
+        _queue_name = QUEUE_COLLECTION
+        _payload_schema = {
+           'key': {'type': 'string', 'required': True},
+           'required_value': {'type': 'string', 'required': True},
+           'default_value': {'type': 'string', 'default': 'nope'},
+        }
+
+
+    client = pymongo.MongoClient()
+
+    q = MongodbQueue(client, TEST_DATABASE_NAME)
+    q.sort_by = [('created_at', 1)]
+
+    # add element to the queue
+    q.put({'key': '12', 'required_value': 'here'})
+
+    for key in range(6):
+        payload = {
+            'key': str(key),
+            'required_value': 'yes' if key % 2 == 0 else 'nope',
+            'default_value': 'yes!'
+        }
+        task = q.put(payload, priority=key)
+
+    assert q.size() == 7
+
+    # get 3 documents not yet processed
+    tasks = q.get(3)
+
+
 Features
 --------
 
