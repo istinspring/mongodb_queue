@@ -27,7 +27,7 @@ Simple Queue based on MongoDb
 * Documentation: https://mongodb-queue.readthedocs.io.
 
 
-Tutorial
+Examples
 --------
 
 .. code-block:: python
