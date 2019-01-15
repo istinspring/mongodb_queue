@@ -1,13 +1,7 @@
-# mongodb\_queue
+# Very simple Mongodb Queue
 
-[![image](https://img.shields.io/pypi/v/mongodb_queue.svg)](https://pypi.python.org/pypi/mongodb_queue)
-
-[![image](https://img.shields.io/travis/istinspring/mongodb_queue.svg)](https://travis-ci.org/istinspring/mongodb_queue)
-
-[![Documentation
-Status](https://readthedocs.org/projects/mongodb-queue/badge/?version=latest)](https://mongodb-queue.readthedocs.io/en/latest/?badge=latest)
-
-[![Updates](https://pyup.io/repos/github/istinspring/mongodb_queue/shield.svg)](https://pyup.io/repos/github/istinspring/mongodb_queue/)
+[![image](https://img.shields.io/pypi/v/mongodb_queue.svg)](https://pypi.python.org/pypi/mongodb_queue) [![image](https://img.shields.io/travis/istinspring/mongodb_queue.svg)](https://travis-ci.org/istinspring/mongodb_queue) [![Documentation
+Status](https://readthedocs.org/projects/mongodb-queue/badge/?version=latest)](https://mongodb-queue.readthedocs.io/en/latest/?badge=latest) [![Updates](https://pyup.io/repos/github/istinspring/mongodb_queue/shield.svg)](https://pyup.io/repos/github/istinspring/mongodb_queue/)
 
 Simple Queue based on MongoDb
 
