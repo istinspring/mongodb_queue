@@ -27,7 +27,6 @@ class MongodbQueue(BaseMongodbQueue):
         'default_value': {'type': 'string', 'default': 'nope'},
     }
 
-
 client = pymongo.MongoClient()
 
 q = MongodbQueue(client, 'mongodb_queue')
@@ -52,7 +51,8 @@ tasks = q.get(3)
 
 ## Features
 
-  - TODO
+  - [ ] bulk writes?
+  - [ ] FIFO (by '_id'_)
 
 ## Credits
 
