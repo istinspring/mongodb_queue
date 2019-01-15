@@ -100,7 +100,7 @@ class BaseMongodbQueue:
 
     def put(self, payload, priority=0, selector={}):
         """Put task into profiles queue
-         1
+
         :param payload: payload to save into the qeue
         :param priority: the bigger the better
         :param selector: key-value pair or more complex query to
@@ -134,6 +134,15 @@ class BaseMongodbQueue:
             task = self.col.insert_one(document)
 
         return task
+
+    def put_batch(self, payload_list, priority=0):
+        for payload in payload_list:
+            op = pymongo.UpdateOne(
+                {'payload': loc_id},
+                {'$set': doc},
+                upsert=True,
+            )
+            ops.append(op)
 
     def get(self, length, selector={}):
         """Return sequence of tasks to process.
