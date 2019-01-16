@@ -179,7 +179,7 @@ class BaseMongodbQueue:
 
     def create_indexes(self):
         idx = []
-        for index in self.indexes:
+        for index in self._indexes:
             i = self.col.create_index(index)
             idx.append(i)
         return idx
