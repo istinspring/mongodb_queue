@@ -17,12 +17,12 @@ QUEUE_COLLECTION = 'queue_queue'
 
 
 class MongodbQueue(BaseMongodbQueue):
-   _queue_name = QUEUE_COLLECTION
-   _payload_schema = {
-       'key': {'type': 'string', 'required': True},
-       'required_value': {'type': 'string', 'required': True},
-       'default_value': {'type': 'string', 'default': 'nope'},
-   }
+    _queue_name = QUEUE_COLLECTION
+    _payload_schema = {
+        'key': {'type': 'string', 'required': True},
+        'required_value': {'type': 'string', 'required': True},
+        'default_value': {'type': 'string', 'default': 'nope'},
+    }
 
 
 @pytest.fixture(scope='function')
@@ -96,8 +96,6 @@ def test_mongodb_queue_put(test_db):
 
 
 def test_mongodb_queue_put_with_selectors(test_db):
-    from mongodb_queue.mongodb_queue import PayloadValidationError
-
     client, _ = test_db
     q = MongodbQueue(client, TEST_DATABASE_NAME)
 
@@ -110,6 +108,7 @@ def test_mongodb_queue_put_with_selectors(test_db):
         }
         task = q.put(payload, priority=key)
 
+    assert task is not None
     assert q.size() == 7
 
     data_from_get = q.get(4, selector={'payload.required_value': 'yes'})
@@ -140,8 +139,6 @@ def test_mongodb_queue_delete(test_db):
 
 
 def test_mongodb_queue_zero_length(test_db):
-    from mongodb_queue.mongodb_queue import PayloadValidationError
-
     client, _ = test_db
 
     q = MongodbQueue(client, TEST_DATABASE_NAME)
@@ -149,8 +146,6 @@ def test_mongodb_queue_zero_length(test_db):
 
 
 def test_mongodb_queue_get_sort_by(test_db):
-    from mongodb_queue.mongodb_queue import PayloadValidationError
-
     # client = pymongo.MongoClient()
     client, conn = test_db
 
@@ -166,13 +161,14 @@ def test_mongodb_queue_get_sort_by(test_db):
         }
         task = q.put(payload, priority=key)
 
+    assert task is not None
     assert q.size() == 6
 
     # get 3 documents not yet processed
     tasks_queue_get = q.get(3)
     assert len(tasks_queue_get) == 3
 
-    created_at_list  = [x['created_at'] for x in tasks_queue_get]
+    created_at_list = [x['created_at'] for x in tasks_queue_get]
     created_at_list_sorted = sorted(created_at_list)
 
     for v, s in zip(created_at_list, created_at_list_sorted):
@@ -189,8 +185,6 @@ def test_mongodb_queue_get_sort_by(test_db):
 
 
 def test_mongodb_queue_get_mark_done(test_db):
-    from mongodb_queue.mongodb_queue import PayloadValidationError
-
     # client = pymongo.MongoClient()
     client, conn = test_db
 
@@ -208,6 +202,7 @@ def test_mongodb_queue_get_mark_done(test_db):
         }
         task = q.put(payload, priority=key)
 
+    assert task is not None
     assert q.size() == 6
 
     # get 3 documents not yet processed
@@ -233,6 +228,29 @@ def test_mongodb_queue_get_mark_done(test_db):
 
     # check there are none items left unprocessed
     assert q.col.count({'finished_at': None}) == 0
+
+
+def test_mongo_queue_put_bulk(test_db):
+    client, conn = test_db
+
+    q = MongodbQueue(client, TEST_DATABASE_NAME)
+
+    documents = []
+    doc_template = {
+        'key': '',
+        'required_value': 'yes',
+    }
+    for num in range(1, 5):
+        payload = doc_template.copy()
+        payload['key'] = 'doc {}'.format(num)
+
+        documents.append(payload)
+
+    r = q.put_bulk(documents, 'key', priority=10)
+    br = r.bulk_api_result
+
+    assert br['nUpserted'] == 4
+    assert q.size() == 4
 
 
 def test_command_line_interface():

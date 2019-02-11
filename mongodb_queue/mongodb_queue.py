@@ -135,14 +135,36 @@ class BaseMongodbQueue:
 
         return task
 
-    def put_batch(self, payload_list, priority=0):
+    def put_bulk(self, payload_list, selector_key, priority=0):
+        """Put list of task into profiles queue
+
+        :param payload: payload to save into the qeue
+        :param priority: the bigger the better
+        :param selector: key-value pair or more complex query to
+        check if item already in queue
+        :returns: `InsertOneResult`
+        """
+        ops = []
         for payload in payload_list:
+            payload_normalized = self._payload_validator.normalized(payload)
+
+            payload_key = 'payload.{}'.format(selector_key)
             op = pymongo.UpdateOne(
-                {'payload': loc_id},
-                {'$set': doc},
+                {
+                    payload_key: payload_normalized[selector_key]},
+                {'$set': payload_normalized},
                 upsert=True,
             )
-            ops.append(op)
+            v = self._payload_validator.validate(payload)
+            if v is False:
+                raise PayloadValidationError(
+                    "Vaidation_errors: {}".format(
+                        self._payload_validator.errors))
+            else:
+                ops.append(op)
+
+        res = self.col.bulk_write(ops)
+        return res
 
     def get(self, length, selector={}):
         """Return sequence of tasks to process.
